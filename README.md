@@ -1,9 +1,15 @@
 <!-- mcp-name: io.github.Luther22-source/overseer-mcp -->
 # Overseer MCP (`overseer-mcp`)
 
+[![CI](https://github.com/Luther22-source/overseer-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/Luther22-source/overseer-mcp/actions/workflows/ci.yml) [![Latest Release](https://img.shields.io/github/v/release/Luther22-source/overseer-mcp)](https://github.com/Luther22-source/overseer-mcp/releases/latest) [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-3776ab)](pyproject.toml) [![License: MIT](https://img.shields.io/badge/license-MIT-22c55e)](LICENSE)
+
 **Keep your IDE agent as the Boss. Offload bounded coding, refactoring, docs, and test-writing to `:free` or low-cost OpenRouter workers.**
 
 Overseer is a local Python `stdio` MCP server (`overseer-mcp`) with a built-in live Monitor UI (`ui://overseer/app.html`). Your primary IDE model stays in control of planning, architecture, and final verification while delegating isolated, folder-jailed file tasks to parallel OpenRouter worker models—with automatic syntax checks, spend caps, secret redaction, and one-click rollback.
+
+![Overseer Monitor UI showing parallel free-tier workers, static syntax checks, and one-click rollback](docs/assets/monitor-ui.png)
+
+*Live IDE Monitor UI (`ui://overseer/app.html`) — track parallel workers, spend caps, file diffs, and one-click rollback across projects.*
 
 ---
 
@@ -16,7 +22,7 @@ flowchart LR
     Server -->|"Dispatches up to N workers"| Pool["Worker Pool (free / cheap / heavy)"]
     Pool -->|"Folder-jailed 8-tool loop (no shell)"| Repo["Target Repository"]
     Pool -->|"Chat Completions + Failover"| OR["OpenRouter API"]
-    Server -->|"Snapshots, locks, audit logs"| State["<data_dir>/.env, config.json, runs/"]
+    Server -->|"Snapshots, locks, audit logs"| State["External data_dir (.env, config.json, runs/)"]
 ```
 
 ---
@@ -178,7 +184,7 @@ npx @modelcontextprotocol/inspector overseer-mcp
 
 | Tool | Purpose |
 | :--- | :--- |
-| `start_run` | Launch 1–20 tasks (`1–10` concurrent workers via `max_concurrent_workers`) in non-overlapping folders with `shared_contract`, `target_files`, and tier selection |
+| `start_run` | Launch 1–20 tasks (up to 10 concurrent workers, configurable via `update_config`) in non-overlapping folders with `shared_contract`, `target_files`, and tier selection |
 | `get_report` | Collect status, `diffstat`, `static_check` results, spend, `cached_tokens`, and worker notes |
 | `cancel_run` | Gracefully cancel an active run |
 | `rollback` | Restore pre-edit file snapshots and delete newly created files (prompts via MCP elicitation when `confirm=False` on supporting clients) |
@@ -201,6 +207,7 @@ Workers have **no shell access**, are jailed to `project_root` (and their assign
 ## Repository Map & Docs
 
 * **MCP Registry Manifest:** [server.json](server.json)
+* **Security Policy:** [SECURITY.md](SECURITY.md)
 * **Workspace Rules:** [AGENTS.md](AGENTS.md)
 * **Boss Playbook Skill:** [.agents/skills/overseer-boss/SKILL.md](.agents/skills/overseer-boss/SKILL.md)
 * **Environment Variables:** [.env.example](.env.example)

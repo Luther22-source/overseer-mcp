@@ -4,25 +4,16 @@
   "title": "Overseer MCP",
   "description": "IDE-as-Boss OpenRouter worker pool MCP server over stdio with live Monitor UI",
   "version": "0.1.0",
+  "repository": {
+    "url": "https://github.com/Luther22-source/overseer-mcp",
+    "source": "github"
+  },
   "packages": [
     {
       "registryType": "pypi",
-      "identifier": "overseer",
+      "identifier": "overseer-mcp",
       "version": "0.1.0",
       "runtimeHint": "uvx",
-      "runtimeArguments": [
-        {
-          "type": "named",
-          "name": "--from",
-          "value": "overseer"
-        }
-      ],
-      "packageArguments": [
-        {
-          "type": "positional",
-          "value": "overseer-mcp"
-        }
-      ],
       "transport": {
         "type": "stdio"
       },

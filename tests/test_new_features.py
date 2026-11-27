@@ -1168,9 +1168,12 @@ async def test_provider_routing_zdr_and_quantizations_payload(
 
 
 def test_server_json_manifest_validation() -> None:
+    import overseer
+
     root = Path(__file__).resolve().parent.parent
     manifest_path = root / "server.json"
     pyproject_path = root / "pyproject.toml"
+    readme_path = root / "README.md"
     assert manifest_path.is_file()
 
     data = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -1178,17 +1181,26 @@ def test_server_json_manifest_validation() -> None:
     pkg_version = pyproject["project"]["version"]
     pkg_name = pyproject["project"]["name"]
 
+    assert pkg_name == "overseer-mcp"
+    assert overseer.__version__ == pkg_version
     assert data["$schema"] == "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json"
-    assert isinstance(data["name"], str) and "/" in data["name"]
+    assert data["name"] == "io.github.Luther22-source/overseer-mcp"
+    assert readme_path.read_text(encoding="utf-8").splitlines()[0] == f"<!-- mcp-name: {data['name']} -->"
     assert data["title"] == "Overseer MCP"
     assert data["version"] == pkg_version
+    assert data["repository"] == {
+        "url": "https://github.com/Luther22-source/overseer-mcp",
+        "source": "github",
+    }
     assert isinstance(data["packages"], list) and len(data["packages"]) >= 1
 
     pkg = data["packages"][0]
     assert pkg["registryType"] == "pypi"
-    assert pkg["identifier"] == pkg_name
+    assert pkg["identifier"] == "overseer-mcp"
     assert pkg["version"] == pkg_version
     assert pkg["runtimeHint"] == "uvx"
+    assert "runtimeArguments" not in pkg
+    assert "packageArguments" not in pkg
     assert pkg["transport"] == {"type": "stdio"}
 
     env_by_name = {e["name"]: e for e in pkg["environmentVariables"]}
