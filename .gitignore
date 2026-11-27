@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.venv/
+venv/
+build/
+/dist/
+
+# Node / UI build (keep built overseer/ui/dist/app.html tracked)
+overseer/ui/node_modules/
+node_modules/
+
+# Secrets & local overrides
+.env
+.env.*
+!.env.example
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Generated benchmark run outputs (keep harness scripts tracked)
+overseer-bench/run_normal/
+overseer-bench/run_overseer/
+
+# Local historical review / archive / planning notes & machine-specific handoff state
+docs/reviews/
+docs/archive/
+docs/designs/openrouter-worker-pool-v2-dashboard-toasts.md
+docs/designs/openrouter-worker-pool-v3-brief.md
+PROJECT_STATE.md

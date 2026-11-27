@@ -1,0 +1,63 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Luther22-source/overseer-mcp",
+  "title": "Overseer MCP",
+  "description": "IDE-as-Boss OpenRouter worker pool MCP server over stdio with live Monitor UI",
+  "version": "0.1.0",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "identifier": "overseer",
+      "version": "0.1.0",
+      "runtimeHint": "uvx",
+      "runtimeArguments": [
+        {
+          "type": "named",
+          "name": "--from",
+          "value": "overseer"
+        }
+      ],
+      "packageArguments": [
+        {
+          "type": "positional",
+          "value": "overseer-mcp"
+        }
+      ],
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "OPENROUTER_API_KEY",
+          "description": "Shared fallback OpenRouter API key (or store keys in <data_dir>/.env via overseer-mcp init)",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "OPENROUTER_FREE_API_KEY",
+          "description": "Optional OpenRouter API key dedicated to :free tier models",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "OPENROUTER_CHEAP_API_KEY",
+          "description": "Optional OpenRouter API key dedicated to cheap tier models",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "OPENROUTER_HEAVY_API_KEY",
+          "description": "Optional OpenRouter API key dedicated to heavy tier models",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "OVERSEER_DATA_DIR",
+          "description": "Optional override for the external Overseer data directory",
+          "isRequired": false,
+          "isSecret": false
+        }
+      ]
+    }
+  ]
+}
