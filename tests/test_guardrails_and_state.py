@@ -1826,7 +1826,7 @@ async def test_audit_nested_deny_dotenv_ruff_dir_conflict_rollback_and_inode_cac
 
     def _fake_stat(self: Path, *args: Any, **kwargs: Any) -> Any:
         if self == m_path:
-            return SimpleNamespace(st_mtime_ns=999_999, st_size=size_bytes, st_ino=fake_ino[0])
+            return SimpleNamespace(st_mtime_ns=999_999, st_size=size_bytes, st_ino=fake_ino[0], st_mode=0o100644)
         return orig_stat(self, *args, **kwargs)
 
     with patch.object(Path, "stat", _fake_stat):
@@ -1836,7 +1836,37 @@ async def test_audit_nested_deny_dotenv_ruff_dir_conflict_rollback_and_inode_cac
         assert _load_manifest_cached_sync(m_path).status == "rolled_back"
 
 
+def test_cross_platform_backslash_and_macos_var_folders_policy(
+    isolated_env: tuple[Path, Path],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from overseer import guardrails as guardrails_mod
 
+    repo, _ = isolated_env
+    api_file = repo / "backend" / "api.py"
+    api_file.write_text("ok = True\n", encoding="utf-8")
 
+    # Relative backslash paths resolve identically across POSIX and Windows
+    assert resolve_scoped_path(repo, repo, r"backend\api.py", require_exists=True) == api_file.resolve()
 
+    # On macOS (darwin), per-user temp repos under /private/var/folders/... are allowed,
+    # while /private/var/folders itself and other /var or OS system dirs stay rejected.
+    with monkeypatch.context() as mp:
+        mp.setattr(guardrails_mod.sys, "platform", "darwin")
+        var_folders_repo = Path("/var/folders/ab/cd1234/T/pytest-0/repo").resolve(strict=False)
+        guardrails_mod._validate_project_root_policy(var_folders_repo)
+        for forbidden in (
+            Path("/var/folders").resolve(strict=False),
+            Path("/var/db/myproj").resolve(strict=False),
+            Path("/var/root/myproj").resolve(strict=False),
+            Path("/etc/myproj").resolve(strict=False),
+        ):
+            with pytest.raises(PathSecurityError):
+                guardrails_mod._validate_project_root_policy(forbidden)
+
+    # On Linux, /var/folders/... must remain rejected as part of /var
+    with monkeypatch.context() as mp:
+        mp.setattr(guardrails_mod.sys, "platform", "linux")
+        with pytest.raises(PathSecurityError):
+            guardrails_mod._validate_project_root_policy(Path("/var/folders/ab/cd1234/T/pytest-0/repo").resolve(strict=False))
 

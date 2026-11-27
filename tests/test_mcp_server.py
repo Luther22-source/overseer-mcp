@@ -1148,6 +1148,7 @@ async def test_round3_stdio_subprocess_framing_refcounted_stdout_and_compact_mon
     import os
     import sys
 
+    from overseer import __version__
     from overseer.models import RunLimits, RunManifest, WorkerManifestState
     from overseer.server import _redirect_stdout_to_stderr
     from overseer.state import save_manifest_atomic, utc_now_iso
@@ -1217,30 +1218,61 @@ async def test_round3_stdio_subprocess_framing_refcounted_stdout_and_compact_mon
         stderr=asyncio.subprocess.PIPE,
         env=env,
     )
-    reqs = "\n".join(
-        [
-            json.dumps(
-                {
-                    "jsonrpc": "2.0",
-                    "id": 1,
-                    "method": "initialize",
-                    "params": {
-                        "protocolVersion": "2025-03-26",
-                        "capabilities": {},
-                        "clientInfo": {"name": "pytest", "version": "0.1"},
-                    },
-                }
-            ),
-            json.dumps({"jsonrpc": "2.0", "method": "notifications/initialized"}),
-            json.dumps({"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}}),
-        ]
-    ) + "\n"
-    assert proc.stdin is not None
-    proc.stdin.write(reqs.encode("utf-8"))
-    proc.stdin.write_eof()
-    out_bytes, err_bytes = await asyncio.wait_for(proc.communicate(), timeout=8.0)
+    assert proc.stdin is not None and proc.stdout is not None and proc.stderr is not None
+    try:
+        init_req = json.dumps(
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "initialize",
+                "params": {
+                    "protocolVersion": "2025-03-26",
+                    "capabilities": {},
+                    "clientInfo": {"name": "pytest", "version": "0.1"},
+                },
+            }
+        )
+        proc.stdin.write((init_req + "\n").encode("utf-8"))
+        await proc.stdin.drain()
+
+        parsed_msgs: list[dict[str, Any]] = []
+        while not any(m.get("id") == 1 for m in parsed_msgs):
+            raw_line = await asyncio.wait_for(proc.stdout.readline(), timeout=8.0)
+            assert raw_line, "MCP stdio server exited before responding to initialize"
+            line_str = raw_line.decode("utf-8").strip()
+            if line_str:
+                parsed_msgs.append(json.loads(line_str))
+
+        follow_reqs = (
+            json.dumps({"jsonrpc": "2.0", "method": "notifications/initialized"})
+            + "\n"
+            + json.dumps({"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}})
+            + "\n"
+        )
+        proc.stdin.write(follow_reqs.encode("utf-8"))
+        await proc.stdin.drain()
+
+        while not any(m.get("id") == 2 for m in parsed_msgs):
+            raw_line = await asyncio.wait_for(proc.stdout.readline(), timeout=8.0)
+            assert raw_line, "MCP stdio server exited before responding to tools/list"
+            line_str = raw_line.decode("utf-8").strip()
+            if line_str:
+                parsed_msgs.append(json.loads(line_str))
+
+        proc.stdin.write_eof()
+        rem_out, err_bytes = await asyncio.wait_for(proc.communicate(), timeout=8.0)
+        for trailing in rem_out.decode("utf-8").splitlines():
+            if trailing.strip():
+                parsed_msgs.append(json.loads(trailing))
+    finally:
+        if proc.returncode is None:
+            proc.kill()
+            await proc.wait()
+
     assert proc.returncode == 0, err_bytes.decode("utf-8", errors="replace")
-    parsed_msgs = [json.loads(line) for line in out_bytes.decode("utf-8").splitlines() if line.strip()]
+    init_resp = next(msg for msg in parsed_msgs if msg.get("id") == 1)
+    assert init_resp["result"]["serverInfo"]["name"] == "overseer"
+    assert init_resp["result"]["serverInfo"]["version"] == __version__
     tool_names = {t["name"] for msg in parsed_msgs if msg.get("id") == 2 for t in msg["result"]["tools"]}
     assert {"start_run", "get_report", "cancel_run", "rollback", "open_overseer_monitor"} <= tool_names
 

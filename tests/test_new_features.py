@@ -833,6 +833,33 @@ def test_cli_init_and_doctor_offline(
     assert "sk-or-cli-secret-123456" not in doc_out
     assert "OPENROUTER_API_KEY" in doc_out
 
+    # Re-running init --non-interactive with no key updates must preserve existing .env comments
+    env_file = tmp_path / "appdata" / ".env"
+    custom_env = "# keep my custom comment\nOPENROUTER_API_KEY=sk-or-cli-secret-123456\n"
+    env_file.write_text(custom_env, encoding="utf-8")
+    rc_noop = cli.run_init(["--non-interactive", "--skip-verify"])
+    assert rc_noop == 0
+    noop_out = capsys.readouterr().out
+    assert "Using existing Overseer environment file:" in noop_out
+    assert env_file.read_text(encoding="utf-8") == custom_env
+
+    # Snippet builder prefers installed overseer-mcp binary over uvx over python -m
+    with monkeypatch.context() as mp:
+        mp.setattr("overseer.cli.shutil.which", lambda name: "/usr/local/bin/overseer-mcp" if name == "overseer-mcp" else "/usr/local/bin/uvx")
+        entry = cli._build_mcp_client_snippets("/usr/bin/python3")["Cursor (.cursor/mcp.json)"]["mcpServers"]["overseer"]
+        assert entry["command"] == "/usr/local/bin/overseer-mcp"
+        assert entry["args"] == []
+    with monkeypatch.context() as mp:
+        mp.setattr("overseer.cli.shutil.which", lambda name: "/usr/local/bin/uvx" if name == "uvx" else None)
+        entry = cli._build_mcp_client_snippets("/usr/bin/python3")["Cursor (.cursor/mcp.json)"]["mcpServers"]["overseer"]
+        assert entry["command"] == "/usr/local/bin/uvx"
+        assert entry["args"] == ["--from", "git+https://github.com/Luther22-source/overseer-mcp", "overseer-mcp"]
+    with monkeypatch.context() as mp:
+        mp.setattr("overseer.cli.shutil.which", lambda _name: None)
+        entry = cli._build_mcp_client_snippets("/usr/bin/python3")["Cursor (.cursor/mcp.json)"]["mcpServers"]["overseer"]
+        assert entry["command"] == "/usr/bin/python3"
+        assert entry["args"] == ["-m", "overseer.server"]
+
 
 @pytest.mark.asyncio
 async def test_notify_cross_platform_minimal_env(monkeypatch: pytest.MonkeyPatch) -> None:

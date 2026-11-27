@@ -522,6 +522,7 @@ def create_server(state: OverseerServerState | None = None) -> tuple[FastMCP, Ov
 
     mcp = FastMCP(
         name="overseer",
+        version=__version__,
         instructions=(
             "IDE-as-Boss OpenRouter worker pool. Call start_run with project_root and scoped tasks; "
             "wait for the user to ask for results before calling get_report; use cancel_run to stop an "

@@ -86,14 +86,20 @@ def _verify_openrouter_connectivity(base_url: str, api_key: str) -> tuple[bool, 
 
 
 def _build_mcp_client_snippets(python_exe: str) -> dict[str, dict[str, Any]]:
-    uvx_path = shutil.which("uvx")
+    overseer_bin = shutil.which("overseer-mcp")
+    uvx_path = None if overseer_bin else shutil.which("uvx")
+    if overseer_bin:
+        command = overseer_bin
+        args: list[str] = []
+    elif uvx_path:
+        command = uvx_path
+        args = ["--from", "git+https://github.com/Luther22-source/overseer-mcp", "overseer-mcp"]
+    else:
+        command = python_exe
+        args = ["-m", "overseer.server"]
     server_entry: dict[str, Any] = {
-        "command": uvx_path or python_exe,
-        "args": (
-            ["--from", "git+https://github.com/Luther22-source/overseer-mcp", "overseer-mcp"]
-            if uvx_path
-            else ["-m", "overseer.server"]
-        ),
+        "command": command,
+        "args": args,
         "env": {"PYTHONUNBUFFERED": "1"},
     }
     return {
@@ -153,8 +159,12 @@ def run_init(argv: list[str] | None = None) -> int:
         print("Error: no OpenRouter API key provided.", file=sys.stderr)
         return 1
 
-    env_path = _write_dotenv_keys(updates)
-    print(f"Wrote Overseer environment file: {env_path}")
+    if updates:
+        env_path = _write_dotenv_keys(updates)
+        print(f"Wrote Overseer environment file: {env_path}")
+    else:
+        env_path = get_data_dir() / ".env"
+        print(f"Using existing Overseer environment file: {env_path}")
 
     test_key = (
         updates.get("OPENROUTER_FREE_API_KEY")

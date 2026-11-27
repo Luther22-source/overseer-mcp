@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import subprocess
+import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
@@ -991,7 +992,8 @@ async def test_post_finish_tool_skipped_and_view_file_edge_cases(worker_env: Pat
         ViewFileArgs(path="backend/app.py", start_line=10, end_line=5)
     shifted = ViewFileArgs(path="backend/long.py", start_line=301)
     assert shifted.end_line == 600
-    text_shifted, rel_key, rel_hash = _view_file_sync(repo, Path(str(repo / "backend").upper()), shifted)
+    folder_arg = Path(str(repo / "backend").upper()) if sys.platform in ("win32", "darwin") else (repo / "backend")
+    text_shifted, rel_key, rel_hash = _view_file_sync(repo, folder_arg, shifted)
     assert "301: L301 = 301" in text_shifted
     assert rel_key == "backend/long.py" and rel_hash is not None
 
@@ -3770,11 +3772,12 @@ async def test_audit_cancel_event_aborts_inflight_http_dotenv_toast_and_coordina
     # 2. OVERSEER_DISABLE_TOASTS=true in <data_dir>/.env suppresses auto toasts and send_windows_toast
     data_dir.mkdir(parents=True, exist_ok=True)
     (data_dir / ".env").write_text("OVERSEER_DISABLE_TOASTS=true\n", encoding="utf-8")
-    monkeypatch.delenv("OVERSEER_DISABLE_TOASTS", raising=False)
-    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
-    monkeypatch.setattr("overseer.notify.sys.platform", "win32")
-    assert notify.should_suppress_auto_toast() is True
-    assert await notify.send_windows_toast("Title", "Body") is False
+    with monkeypatch.context() as mp:
+        mp.delenv("OVERSEER_DISABLE_TOASTS", raising=False)
+        mp.delenv("PYTEST_CURRENT_TEST", raising=False)
+        mp.setattr("overseer.notify.sys.platform", "win32")
+        assert notify.should_suppress_auto_toast() is True
+        assert await notify.send_windows_toast("Title", "Body") is False
 
     # 3. _coordinator releases active.lock and registry state even if final write_manifest_locked raises OSError
     def ok_handler(request: httpx.Request) -> httpx.Response:

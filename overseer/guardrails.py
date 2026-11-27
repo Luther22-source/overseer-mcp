@@ -244,9 +244,10 @@ def get_data_dir() -> Path:
 
 def get_project_data_dir(project_root: Path) -> Path:
     """Return a collision-free per-project external directory under get_data_dir()."""
-    norm = str(_normcase_path(project_root.resolve()))
+    norm_path = _normcase_path(project_root.resolve())
+    norm = str(norm_path)
     digest = hashlib.sha256(norm.encode("utf-8")).hexdigest()[:12]
-    raw_name = project_root.name or "root"
+    raw_name = norm_path.name or "root"
     safe_slug = re.sub(r"[^A-Za-z0-9_-]+", "_", raw_name).strip("_")[:32] or "project"
     return get_data_dir() / "projects" / f"{safe_slug}_{digest}"
 
@@ -399,6 +400,12 @@ def _validate_project_root_policy(resolved: Path) -> None:
             continue
         sys_dir = Path(raw_sys).resolve(strict=False)
         if is_normcase_relative_to(resolved, sys_dir):
+            if sys.platform == "darwin" and raw_sys == "/var":
+                var_folders = Path("/var/folders").resolve(strict=False)
+                if _normcase_path(resolved) != _normcase_path(var_folders) and is_normcase_relative_to(
+                    resolved, var_folders
+                ):
+                    continue
             raise PathSecurityError(f"project_root cannot point inside OS system directory: {resolved}")
 
 
@@ -445,7 +452,7 @@ def resolve_scoped_path(
     resolved_project = project_root.resolve(strict=True)
     resolved_allowed = allowed_root.resolve(strict=True)
 
-    candidate_input = Path(raw_path)
+    candidate_input = Path(raw_path.replace("\\", "/"))
     if candidate_input.is_absolute():
         candidate = candidate_input
     else:
